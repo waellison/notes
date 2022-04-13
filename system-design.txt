@@ -1,0 +1,529 @@
+# FUNDAMENTALS
+
+Design fundamentals are to systems design as DSA is to coding interviews.
+
+“May your pings be low and your throughput high.” – the systems
+architect’s answer to “may our framerates be high and our temperatures
+low”
+
+There’s a lot to learn.
+
+- Databases
+- Load balancing
+- Leader election
+- Availability
+- The HTTP protocol
+- SQL
+- Hashing
+- Replication
+- Client/server architectures
+- Proxies
+- Peer-to-peer systems
+- Polling
+- Caching
+- Distributed algorithms e.g. MapReduce
+- Specific server programs e.g. nginx when used as a reverse proxy
+
+A systems design interview is intentionally vague.  Your job is to take
+a very brief sentence like “Design Twitch” and turn it into a 45-minute
+discussion.
+
+- Scope
+- Desired functionality
+- Valued characteristics
+
+This is an investigative process, and it requires a lot of fundamental knowledge re. systems design.
+
+Unlike with a coding interview, where there is an objectively correct
+solution, systems design interviews often don’t have “correct” answers.
+There’s a lot more subjectivity (which is why I’d enjoy the process,
+imo).
+
+Sure, there are some system design paradigms that can be used
+objectively incorrectly.  In any case you have to rationalize – and make
+your interviewer(s) understand – why your solution is sound, why it is
+reasonable, and why it is a valid solution to the problem at hand.  You
+must adapt your position if challenged by the interviewer – which is why
+you need the fundamentals.
+
+There are foundational principles within system design, which are
+essential for a sound foundation of knowledge – and make you even
+capable of solving the problems at hand.  Basic to all system design
+questions are:
+
+- The client-server model
+- Network protocols (TCP, UDP, etc.)
+
+There are then key characteristics of the systems you design, which might entail tradeoffs.
+
+- Availability
+- Latency
+- Throughput
+- Redundancy
+- Consistency
+
+Then there are components of the system:
+
+- Load balancers
+- Proxies
+- Rate-limiters
+- Leader election
+
+These enable the characteristics above.
+
+The fourth category is existing products/services – the tech – that you use to achieve a certain characteristic.
+
+- Zookeeper
+- Redis
+- Azure Blob Storage (or S3, Google Cloud Storage, etc.)
+- Postgres
+- Etc.
+
+This category is frequently overlooked.
+
+# THE CLIENT-SERVER MODEL
+
+This is the foundational principle of modern computing, not just
+designing software systems.  Client/server systems are how computers
+communicate.
+
+A client is a process that requests data from a server.
+
+A server is a process that answers requests from a client, as by
+listening for requests.
+
+The client/server model refers to a design paradigm that uses clients to
+request data from servers, and in turn servers to send data to clients
+in response to such requests.
+
+An IP address is a numeric address assigned to each machine connected to
+the Internet, or to a private network.
+
+A port is a numeric slot – a “mailbox,” essentially – that allows
+multiple servers to listen for requests.  There are many well-known
+ports for various services – 80 for HTTP, 22 for SSH, 443 for HTTPS, 53
+for DNS, 587 for SMTP over TLS, 993 for IMAP over SSL, etc.  Ports 0
+through 1023 are considered well-known ports.
+
+The DNS – the Domain Name System – is a gigantic translation table
+between IP addresses and domain names.
+
+Consider the retrieval of my website, <https://www.waellison.io>, by a
+common web browser like Firefox.
+
+1. I key the URL into the address field of my browser.
+
+2. Firefox makes a request of the DNS (= Domain Name System) server
+   configured by my operating system – in the case of my laptop, it queries
+   the home router, which in turn queries my ISP’s DNS servers (because I’m
+   too lazy to set up Google DNS on the router).
+
+3. A DNS request essentially consists of, “Tell me if you know an address
+   for the server that goes by the name www, on the domain waellison.io.”
+   I’m not sure of the exact formatting.
+
+4. This request is made over TCP port 53.
+
+5. The DNS server responds with one of two answers: the IP address of the
+   server I am trying to reach if it is known, or a “not found” response if
+   not.
+
+6. If a CNAME (“Canonical Name”) response is received, pointing this
+   domain to another domain, then that domain is further resolved until an
+   IP address is received.
+
+7. IP addresses are stored in DNS as either A records (32-bit IPv4
+   addresses, w.x.y.z for four integers wxyz between 0 and 255) or as AAAA
+   records (128-bit IPv6 addresses, displayed as eight quarter-words e.g.
+   0000:0000:0000:0000:0000:0000:0000:0000).  The specifics of these
+   addressing models are essentially irrelevant for our purposes.
+
+8. An IP address is essentially where your computer “lives” on the
+   Internet.  Traffic may be routed from your computer to any other
+   computer connected to the internet, although there is no guarantee that
+   the computer on the other end is listening to requests formatted the way
+   you know how to send them.
+
+9. The route your traffic takes can be discerned by using the
+   `traceroute` command.
+
+10. `traceroute` states that it takes 15 hops from my laptop to get to
+   waellison.io.
+
+11. My website lives at 66.228.57.16, a virtual private server hosted in
+   Atlanta by Linode.
+
+12. Firefox then sends an HTTP GET request to this IP address.  Part of
+   this request is my source IP address, which is used to match my request
+   to the response the server generates.
+
+13. My website is hosted by an HTTP server called Apache.  Apache
+   understands that my virtual server receives HTTP requests for six domain
+   names, and through its _virtual host_ functionality, it further
+   understands that all six of these domains have a default document of
+   `index.html` and forward all requests to the HTTPS versions of the
+   respective sites.
+
+14. Apache listens for TCP requests on well-known ports.  If Apache
+   finds my request to be well-formed and can answer it, it attempts to
+   do so by attempting to retrieve the default document of the requested
+   directory (which defaults to the site root if not otherwise given).
+   In this case, I've set up Apache to forward to the HTTPS version of
+   my site, secured by SSL, and so my request is forwarded to port 443,
+   the usual port for HTTP over SSL.
+
+15. Apache returns whatever the contents of index.html are, in the form
+   of an HTTP response.  The server is configured such that files with the
+   .html suffix are known to be HTML markup text.
+
+16. Azure CDN sends back several HTTP headers as well as the markup text
+   itself, which is the body of the response.  Included among these headers
+   is a MIME type (“Content-Type” in HTTP) of text/html, which advises the
+   browser that this is in fact an HTML file.
+
+17. Firefox then interprets the contents of the HTML file.  In this
+   interpretation step, Firefox finds that I am loading several other
+   resource.  These include JavaScript libraries, images, stylesheets, and
+   the favicon.  These account for React as well as my own
+   stylesheets and scripts.
+
+18. For each of these resources, Firefox makes a DNS request (and
+   receives a response) and then issues an HTTP request to the server
+   hosting the resource in question, whereupon that resource is returned
+   with an appropriate MIME type (text/css, application/javascript,
+   image/png, etc.) in its response header and its text in the response
+   body.
+
+19. Firefox interprets these resources accordingly: it parses CSS and
+   JavaScript sources into internal structures, converts image data into a
+   screen raster, etc.
+
+20. Firefox begins the process of rendering the file to screen according
+   to the display rules of HTML and CSS, and running the JavaScript through
+   its interpreter.  The details of this are irrelevant.
+
+21. The user gets to read my incredibly boring webpage in all its
+   non-glory, since it has been reproduced by the client (the user’s web
+   browser) based on responses received from the server.
+
+If you don’t understand client/server computing, you don’t understand
+systems design.  Full stop.
+
+BRIEF DETOUR: THE OSI MODEL
+
+The seven-layer model is the standard for describing the layout of computer networks.
+
+- Physical layer: Physical devices, e.g. switches, repeaters, cabling,
+  modems, hubs, etc.  This includes specifications such as pin layouts,
+  voltage, RF frequencies, and so forth.
+
+- Data link layer: Directly connected nodes are used to perform
+  node-to-node data transfer, and error correction from the physical
+  layer occurs here.  There are two sublayers: MAC (Media Access
+  Control) provides flow control and multiplexing (the physical hardware
+  address, or MAC address, determines where packets flow within a
+  network); LLC (Logical Link Control) provides error correction and
+  flow control and identifies line protocols.
+
+- Network layer: Responsible for receiving frames from the data link
+  layer and delivering them to their intended destinations based on the
+  addresses inside each frame.  This is achieved by using an addressing
+  protocol, these days almost universally the Internet Protocol or IP,
+  either version 4 or 6.  The router is a crucial component of the
+  network layer as it is responsible for literally routing information
+  where it needs to go.
+
+- Transport layer: Manages the delivery and error checking of data
+  packets.  Regulates the size, sequencing, and transfer of data between
+  systems and hosts.  Examples include TCP and UDP.
+
+- Session layer: Controls the conversations between different computers.
+  This includes sessions, authentication, and reconnections.  The
+  operating system would be a part of this OSI level.
+
+- Presentation layer: Formats or translates data for the application
+  layer based on the syntax or semantics that the application accepts,
+  and handles any required encryption/decryption from the application
+  layer.  This is what we commonly think of as a “backend” in web
+  development.
+
+- Application layer: This is the layer that interacts directly with the
+  end user and the software application.  It is what we commonly
+  perceive as the “frontend” in web development.
+
+# NETWORK PROTOCOLS
+
+A protocol is no more than an agreed-upon set of rules for how two
+parties interact.  We have social protocols for interacting as humans,
+and computers have network protocols for communicating among themselves.
+
+A protocol determines:
+
+- The kind of messages sent over the network
+- The way those messages are structured
+- The order in which those messages are sent
+- Whether there should be a response and, if so, what the nature of that
+  response should be
+
+IP is the Internet Protocol, and it underpins all we do.  Computers are
+addressed by their IP addresses, for example.  For our purposes, all we
+really need to know is that the Internet operates by the Internet
+Protocol.  An IP packet is what is sent between machines – this is the
+fundamental unit of data sent between machines.  There are units beyond
+packets, e.g. the bytes that they are made of.  An IP packet consists of
+two primary sections:
+
+The IP header
+: Contains such information as the origin and destination IP addresses,
+  the size of the payload, the IP version being used (e.g. IPv6), etc.
+  Note that the fact that IP packets include source and destination
+  information is what gives Internet communications its structure.
+
+The data (payload)
+: An IP packet may only contain 65,536 bytes.  That is to say, your
+  information is going to have to fit into multiple packets.  The IP by
+  itself does not guarantee that all packets will be received, nor the
+  order in which they are received if they are received.  IP by itself is
+  insufficient.
+
+Hence, we have the Transmission Control Protocol, or TCP.  TCP is built
+atop the Internet Protocol and is meant to send IP datagrams in an
+ordered way and in such a way as to guarantee reliability, and in an
+error-free fashion.  TCP permits transmission of data of arbitrary
+length using IP as its background.
+
+The TCP header lives within the payload of the IP packet.  It contains
+information about the portion of the TCP transmission being sent over
+the IP packet.  The remainder of the IP packet is, thus, the TCP
+payload.
+
+Useful as TCP is, it still lacks in structure to let clients and servers
+communicate.  This is where higher-level protocols – most notably HTTP –
+come into play.
+
+HTTP is the HyperText Transfer Protocol, built atop TCP/IP.  This is the
+protocol that powers the World Wide Web.
+
+HTTP uses a request/response paradigm to send requests and receive
+responses.  We went over HTTP (to a limited extent) during boot camp.
+The Get, Put/Patch, Delete, and Post methods map neatly to the CRUD
+paradigm, and we use these methods, in concert with various paths on the
+server (routes in the parlance of nearly every Web framework, e.g.
+Rails, Flask, Laravel, Django, Symfony, Express, Sinatra, etc.), to
+specify the behavior of our APIs (more on that way later). 
+
+# STORAGE
+
+Lots of this is likely to be review.
+
+# LATENCY AND THROUGHPUT
+
+This is just some back-of-the-envelope math.
+
+Some common orders of magnitude (https://gist.github.com/jboner/2841832), reads assumed to be sequential for these examples:
+
+- L1 cache reference: 0.5 ns (0.0005 us)
+- L2 cache reference: 7 ns (0.007 us)
+- 1 MB read from RAM: 250 us
+- 1 MB read from SSD: 1,000 us (1 GB/s SSD)
+- 1 MB read over the network: 10,000 us (1 Gbps connection, not
+  accounting for distance between endpoints or number of hops between
+  endpoints)
+- 1 MB read over the hard drive: 20,000 us
+- Packet roundtrip, intercontinental: 150,000 us (California ->
+  Netherlands -> California)
+
+Throughput: This is the number of operations that a system can handle
+properly per time unit.  An NIC capable of a 1 Gbps throughput can quite
+literally send and receive at 1 Gbps.  Throughput is frequently quoted
+in requests per second or queries per second.
+
+Optimizing for latency is often a trade-off.  You must consider latency
+(even if only to conclude that it won’t matter in the context of your
+app) for designing your system.
+
+Optimizing the system for throughput can entail buying more bandwidth
+(the naïve answer), but buying a bigger pipe won’t remedy fundamental
+system design issues like having a single server serving thousands to
+millions of requests per second.
+
+Latency and throughput aren’t necessarily correlated – if you have a
+low-latency, low-throughput system, it’s still slow.
+
+# AVAILABILITY
+
+Availability is, in essence, a system’s resilience against failure – a
+system’s fault tolerance.
+
+Mathematically, availability is the percentage of time that a system
+satisfies its primary functions.
+
+Most systems are, nowadays, have an implied guarantee of availability.
+When you purchase an AlgoExpert subscription, for example, you assume
+24/7 access to the content to which you purchased the right of access.
+There are varying degrees of availability you might expect.
+
+- If AlgoExpert is down for a few hours, it would be bad for business,
+  but it’s hardly the end of the world.
+- If Intergy is down at work, again, it’s bad for business, but send
+  everyone home and fix the server.
+- If Azure goes down, it takes millions of customers with it – which
+  would be unacceptable.
+- In the summer of 2019, Google Cloud went down and took down tens of
+  thousands of websites.
+- In the autumn of 2021, Facebook went down for several hours, to the
+  delight of detractors like me but to the anguish of Facebook’s bean
+  counters.
+- It would be catastrophic if air-traffic control software went down,
+  and any complete downtime of the system would be unacceptable.
+
+Availability is measured by the percentage of a year in which it is
+available.  A system available for half of the 8,760 hours of the year
+would be 50% available.
+
+An availability of 90% means that the system is down 36.52 days per
+year.  Chances are you personally have a higher SLA than that with your
+employer, not counting the weekends. ;-)
+
+Most services are quoted by the number of nines of uptime, measured in
+amount of downtime per year):
+
+- 90%: 36.53 days downtime
+- 99%: 87.7 hours downtime (my home server is around 99% available,
+  allowing for power outages etc.)
+- 99.9%: 8.8 hours downtime
+- 99.99%: 52.6 minutes downtime (guaranteed by Linode)
+- 99.999%: 5.3 minutes downtime
+
+A highly available system is a recognizable systems design term.
+
+Azure quotes most of its services to be between 3 and 4 nines of
+reliability, often leaving out free users in quoting these.
+<https://azure.microsoft.com/en-us/support/legal/sla/summary/>  Note that
+Azure DNS has a 100% availability guarantee.
+
+For many systems, the guarantee of availability is explicit.
+
+An SLA – service-level agreement – is a legal contract between a service
+provider and customer that guarantees in writing an explicit level of
+reliability.  SLAs are made up of one or more SLOs – service-level
+objectives.
+
+Availability isn’t always super-important – which is to say you don’t
+necessarily need five-nines availability.  High availability is a
+nontrivial problem to solve and can entail loss of throughput or
+increase of redundancy.  Different parts of the system may need lower
+levels of reliability than other parts.  A service like Stripe, which
+provides payment processing, has components that require high
+availability and components that don’t, based on how important they are
+to the core business product.
+
+So, how do we guarantee availability?
+
+1. Ensure first and foremost that THE SYSTEM DOES NOT HAVE SINGLE POINTS
+   OF FAILURE.  You eliminate points of failure by adding redundancy to the
+   system, so that if one part fails, other identical parts can take their
+   place.  Redundancy can be added at most levels of the system by adding
+   more machines.
+   
+2. Adding extra machines (e.g. load balancers) is an example of passive
+   redundancy – where you just add more components.  If one load balancer
+   buys the farm, the others can pick up the slack until the broken one is
+   fixed.  A multi-engine aircraft is a non-technical example of passive
+   redundancy in an engineering system.
+
+3. Active redundancy is more complex and is when you have multiple
+   machines that work together in a way that only one or a few machines is
+   handling traffic, with the others waiting to pick up the slack if that
+   machine fails – and taking up the slack if that machine fails.  This
+   requires the concept of leader election, to be covered in a later video.
+   The members of the cluster must have a means of nominating a new leader
+   among themselves if the leader becomes unavailable.
+
+4. You will need rigorous processes in place to ensure that when needed,
+   human intervention can be provided to trigger manual restarts of
+   machines when automatic restarts cannot be performed, because sometimes
+   the human element is what precludes high(er) availability.
+
+# CACHING
+
+“The two hardest problems in computer science are caching, naming
+things, and off-by-one errors.”
+
+At the algorithm level, we use caching to improve the time complexity of
+our algorithms by reducing redundant computations.  At the system level,
+we use caching to reduce latency by reducing redundant computations and
+data transfers.  An example is storing database query responses in
+memory so the queries don’t have to be repeated.
+
+- You can cache at the client level – by using a browser’s local
+  storage, e.g.
+- You can cache at the server level – by using a key/value store, e.g.
+- You can cache between components – perhaps by having a cache between
+  the server and database.
+
+Caching at the hardware level is less important in systems-design terms,
+but they’re important in (e.g.) designing the servers, for example
+processor caches.  This can differ in importance by processor
+architecture; some architectures make greater use of L2 vs. L3 cache,
+for example.  Nowadays memory architectures matter much more for
+performance.
+
+Some examples where caching is helpful:
+
+- Network requests, where you wish to avoid having quite so many.  Make
+  the request once, cache the result, and voilà, you no longer have to
+  repeat the request if the same value is requested again.
+
+- Expensive computations, such as unavoidably complex algorithms.
+  Perform the computation once and cache the result, and voilà, you
+  don’t have to repeat that expensive computation.
+
+- Distributed server farms, where multiple servers hit the database with
+  identical requests – a million users trying to view Khloe Kardashian’s
+  Instagram profile, say.  You can cache between the database and the
+  server farm, stash her profile on the cache server(s), and reduce
+  latency for all of the million users trying to access it – and reduce
+  strain on the database.
+
+Examples of caching in use.
+
+- On AlgoExpert, the list of coding interview questions loads slowly the
+  first time.  If you navigate away and then go back to the question
+  list, the loading icon is gone, and the question list loads
+  immediately – because it is cached in your local storage.  Because
+  this list of questions is known to be mostly the same every time it’s
+  loaded, it makes sense to cache the list locally to accelerate loading
+  of the program.
+
+- Another example from that site is running code when you attempt a
+  solution. If you run one of the canned solutions, those results are
+  cached, and if requested those cached results are returned,
+  effectively retrieving the result state of the system based on a hash
+  value.
+
+Caching types:
+
+- Write-through caching: Parallel write to the main source of truth
+  (e.g. database) and to cache.  
+
+- Write-back caching: Update the cache and the cache only, and then
+  behind the scenes the system will asynchronously update the main
+  source of truth to what is in the cache.  When the data is written
+  back is at the server’s discretion.  If the cache vanishes, the
+  changes to be committed back to the database are also gone.
+
+Caches can become stale if their contents of the cache fall out of sync.
+
+Caching is great for single sources of truth, immutable data, and single
+readers/writers, and if consistency is relatively unimportant.  If you
+can properly invalidate cached data (in a distributed way), then you can
+also consider caching.
+
+The eviction policy of a cache determines what gets thrown out of the
+cache.
+
+- Least Recently Used
+- First In, First Out
+- Least Frequently Used
+
